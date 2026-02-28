@@ -6,10 +6,11 @@ export const getAllProducts = async (filters: {
     minPrice?: number;
     maxPrice?: number;
     search?: string;
+    sortBy?: string;
     page?: number;
     limit?: number;
 }) => {
-    const { category, minPrice, maxPrice, search, page = 1, limit = 10 } = filters;
+    const { category, minPrice, maxPrice, search, sortBy, page = 1, limit = 10 } = filters;
     const offset = (page - 1) * limit;
 
     let query = supabase
@@ -32,9 +33,15 @@ export const getAllProducts = async (filters: {
     }
 
     // Apply pagination and ordering
-    query = query
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+    if (sortBy === 'price-low') {
+        query = query.order('price', { ascending: true });
+    } else if (sortBy === 'price-high') {
+        query = query.order('price', { ascending: false });
+    } else {
+        query = query.order('created_at', { ascending: false });
+    }
+
+    query = query.range(offset, offset + limit - 1);
 
     const { data: products, error, count } = await query;
 

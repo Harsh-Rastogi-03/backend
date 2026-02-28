@@ -37,6 +37,7 @@ export const getProducts = async (req: Request, res: Response) => {
         const filters = {
             category: req.query.category as string,
             search: req.query.search as string,
+            sortBy: req.query.sortBy as string,
             minPrice,
             maxPrice,
             page,
