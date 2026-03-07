@@ -4,10 +4,22 @@ import supabase from '../utils/supabase';
 import { PaymentMethod, TransactionStatus, PaymentStatus } from '../types/database.types';
 import { v4 as uuidv4 } from 'uuid';
 
-const razorpay = new Razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || '',
-    key_secret: process.env.RAZORPAY_KEY_SECRET || '',
-});
+// Lazy-initialize Razorpay to ensure env vars are loaded
+let razorpayInstance: Razorpay | null = null;
+
+function getRazorpay(): Razorpay {
+    if (!razorpayInstance) {
+        const key_id = process.env.RAZORPAY_KEY_ID;
+        const key_secret = process.env.RAZORPAY_KEY_SECRET;
+
+        if (!key_id || !key_secret) {
+            throw new Error('RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set in environment');
+        }
+
+        razorpayInstance = new Razorpay({ key_id, key_secret });
+    }
+    return razorpayInstance;
+}
 
 interface RazorpayOrderResult {
     razorpayOrderId: string;
@@ -34,7 +46,7 @@ export const createRazorpayOrder = async (
     // Amount in paise (Razorpay expects smallest currency unit)
     const amountInPaise = Math.round(amount * 100);
 
-    const razorpayOrder = await razorpay.orders.create({
+    const razorpayOrder = await getRazorpay().orders.create({
         amount: amountInPaise,
         currency: 'INR',
         receipt: orderId,
@@ -157,15 +169,19 @@ export const verifyPayment = async (
 
 /**
  * Handle Razorpay webhook events (payment.captured, payment.failed, etc.)
+ * @param rawBody - The raw request body string (for signature verification)
+ * @param body - The parsed JSON body
+ * @param signature - The x-razorpay-signature header
  */
 export const handleWebhook = async (
+    rawBody: string,
     body: any,
     signature: string
 ): Promise<void> => {
-    // Verify webhook signature
+    // Verify webhook signature using raw body string
     const expectedSignature = crypto
         .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET || '')
-        .update(JSON.stringify(body))
+        .update(rawBody)
         .digest('hex');
 
     if (expectedSignature !== signature) {
@@ -259,7 +275,7 @@ export const refundPayment = async (transactionId: string): Promise<boolean> => 
     }
 
     // Issue refund via Razorpay
-    await razorpay.payments.refund(razorpayPaymentId, {
+    await getRazorpay().payments.refund(razorpayPaymentId, {
         speed: 'normal',
     });
 

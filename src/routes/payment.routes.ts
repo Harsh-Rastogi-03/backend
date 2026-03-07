@@ -28,8 +28,9 @@ router.post('/create-order', authenticate, async (req: Request, res: Response) =
 
         res.json(order);
     } catch (error: any) {
-        console.error('[Payment] Create order error:', error.message);
-        res.status(500).json({ error: error.message });
+        const msg = error?.error?.description || error?.message || JSON.stringify(error);
+        console.error('[Payment] Create order error:', msg, error);
+        res.status(500).json({ error: msg });
     }
 });
 
@@ -51,12 +52,14 @@ router.post('/verify', authenticate, async (req: Request, res: Response) => {
 
         res.json(result);
     } catch (error: any) {
-        console.error('[Payment] Verify error:', error.message);
-        res.status(500).json({ error: error.message });
+        const msg = error?.error?.description || error?.message || JSON.stringify(error);
+        console.error('[Payment] Verify error:', msg, error);
+        res.status(500).json({ error: msg });
     }
 });
 
 // Razorpay webhook (no auth — Razorpay calls this)
+// Note: req.body is a raw Buffer here (see app.ts express.raw middleware)
 router.post('/webhook', async (req: Request, res: Response) => {
     try {
         const signature = req.headers['x-razorpay-signature'] as string;
@@ -66,7 +69,10 @@ router.post('/webhook', async (req: Request, res: Response) => {
             return;
         }
 
-        await paymentGatewayService.handleWebhook(req.body, signature);
+        const rawBody = (req.body as Buffer).toString('utf-8');
+        const parsedBody = JSON.parse(rawBody);
+
+        await paymentGatewayService.handleWebhook(rawBody, parsedBody, signature);
         res.json({ status: 'ok' });
     } catch (error: any) {
         console.error('[Payment] Webhook error:', error.message);
