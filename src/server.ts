@@ -1,10 +1,4 @@
-import dotenv from 'dotenv';
-import path from 'path';
-
-// Load environment-specific .env file
-const envFile = process.env.NODE_ENV === 'production' ? '.env.production' : '.env';
-dotenv.config({ path: path.resolve(__dirname, '..', envFile) });
-
+import 'dotenv/config'; // Loads .env locally; in production (Railway) env vars are injected directly
 import app from './app';
 
 const PORT = process.env.PORT || 8000;
