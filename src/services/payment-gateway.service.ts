@@ -71,7 +71,7 @@ export const confirmPayment = async (
 
     // Mock payment success (90% success rate for testing)
     const isSuccess = Math.random() > 0.1;
-    const newStatus: TransactionStatus = isSuccess ? 'COMPLETED' : 'FAILED';
+    const newStatus: TransactionStatus = isSuccess ? TransactionStatus.COMPLETED : TransactionStatus.FAILED;
 
     // Update transaction status
     const { error: updateError } = await supabase
