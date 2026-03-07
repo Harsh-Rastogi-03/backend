@@ -1,16 +1,12 @@
 import { Router, Request, Response } from 'express';
-import * as paymentController from '../controllers/payment.controller';
 import * as paymentGatewayService from '../services/payment-gateway.service';
 import { authenticate } from '../middlewares/auth.middleware';
 import { PaymentMethod } from '../types/database.types';
 
 const router = Router();
 
-// Legacy endpoint (keep for backward compatibility)
-router.post('/process', authenticate, paymentController.processPayment);
-
-// Create payment intent
-router.post('/create-intent', authenticate, async (req: Request, res: Response) => {
+// Create Razorpay order
+router.post('/create-order', authenticate, async (req: Request, res: Response) => {
     try {
         const { orderId, amount, paymentMethod } = req.body;
 
@@ -24,36 +20,57 @@ router.post('/create-intent', authenticate, async (req: Request, res: Response) 
             return;
         }
 
-        const intent = await paymentGatewayService.createPaymentIntent(
+        const order = await paymentGatewayService.createRazorpayOrder(
             orderId,
             amount,
             paymentMethod as PaymentMethod
         );
 
-        res.json(intent);
+        res.json(order);
     } catch (error: any) {
+        console.error('[Payment] Create order error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
 
-// Confirm payment
-router.post('/confirm', authenticate, async (req: Request, res: Response) => {
+// Verify Razorpay payment after checkout
+router.post('/verify', authenticate, async (req: Request, res: Response) => {
     try {
-        const { transactionId, paymentMethod } = req.body;
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
 
-        if (!transactionId || !paymentMethod) {
-            res.status(400).json({ error: 'Transaction ID and payment method are required' });
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+            res.status(400).json({ error: 'Missing Razorpay payment details' });
             return;
         }
 
-        const confirmation = await paymentGatewayService.confirmPayment(
-            transactionId,
-            paymentMethod as PaymentMethod
+        const result = await paymentGatewayService.verifyPayment(
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
         );
 
-        res.json(confirmation);
+        res.json(result);
     } catch (error: any) {
+        console.error('[Payment] Verify error:', error.message);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// Razorpay webhook (no auth — Razorpay calls this)
+router.post('/webhook', async (req: Request, res: Response) => {
+    try {
+        const signature = req.headers['x-razorpay-signature'] as string;
+
+        if (!signature) {
+            res.status(400).json({ error: 'Missing webhook signature' });
+            return;
+        }
+
+        await paymentGatewayService.handleWebhook(req.body, signature);
+        res.json({ status: 'ok' });
+    } catch (error: any) {
+        console.error('[Payment] Webhook error:', error.message);
+        res.status(400).json({ error: error.message });
     }
 });
 

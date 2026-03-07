@@ -1,36 +1,24 @@
 import supabase from '../utils/supabase';
 import { PaymentStatus, OrderStatus } from '../types/database.types';
 
-// Placeholder for future Payment Gateway integration (Stripe, Razorpay, etc.)
+// This service is now superseded by payment-gateway.service.ts (Razorpay).
+// Kept for backward compatibility with the legacy /payments/process endpoint.
+
 export const processPayment = async (orderId: string, amount: number) => {
-    console.log(`[PaymentService] Processing payment for Order ${orderId} Amount: ${amount}`);
+    console.log(`[PaymentService] Legacy processPayment called for Order ${orderId} Amount: ${amount}`);
+    console.warn('[PaymentService] Use Razorpay flow (/payments/create-order + /payments/verify) instead.');
 
-    // SIMULATION: Simulate network delay and always return success
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const { error } = await supabase
+        .from('orders')
+        .update({
+            payment_status: PaymentStatus.PAID,
+            status: OrderStatus.PROCESSING,
+        })
+        .eq('id', orderId);
 
-    // In a real implementation:
-    // 1. Create intent with Gateway
-    // 2. Confirm transaction
-    // 3. Handle webhook for async updates
-
-    const success = true;
-
-    if (success) {
-        // Update Order Status
-        const { error } = await supabase
-            .from('orders')
-            .update({
-                payment_status: PaymentStatus.PAID,
-                status: OrderStatus.PROCESSING, // Move to processing after payment
-            })
-            .eq('id', orderId);
-
-        if (error) {
-            throw new Error(`Failed to update order payment status: ${error.message}`);
-        }
-
-        return { success: true, transactionId: `MOCK_TRX_${Date.now()}` };
-    } else {
-        throw new Error('Payment Failed');
+    if (error) {
+        throw new Error(`Failed to update order payment status: ${error.message}`);
     }
+
+    return { success: true, transactionId: `LEGACY_TRX_${Date.now()}` };
 };
