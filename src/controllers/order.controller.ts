@@ -54,6 +54,25 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
     }
 };
 
+export const getOrderById = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user || !req.user.userId) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+        const { orderId } = req.params;
+        const order = await orderService.getOrderById(orderId, req.user.userId);
+        res.status(200).json(order);
+    } catch (error: any) {
+        if (error.message === 'Order not found') {
+            res.status(404).json({ error: 'Order not found' });
+            return;
+        }
+        console.error(error);
+        res.status(500).json({ error: 'Failed to fetch order' });
+    }
+};
+
 export const getMyOrders = async (req: AuthRequest, res: Response) => {
     try {
         if (!req.user || !req.user.userId) {

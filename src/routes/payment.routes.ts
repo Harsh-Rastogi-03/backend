@@ -1,29 +1,22 @@
 import { Router, Request, Response } from 'express';
 import * as paymentGatewayService from '../services/payment-gateway.service';
 import { authenticate } from '../middlewares/auth.middleware';
-import { PaymentMethod } from '../types/database.types';
 
 const router = Router();
 
 // Create Razorpay order
 router.post('/create-order', authenticate, async (req: Request, res: Response) => {
     try {
-        const { orderId, amount, paymentMethod } = req.body;
+        const { orderId, amount } = req.body;
 
-        if (!orderId || !amount || !paymentMethod) {
-            res.status(400).json({ error: 'Order ID, amount, and payment method are required' });
-            return;
-        }
-
-        if (!paymentGatewayService.validatePaymentMethod(paymentMethod)) {
-            res.status(400).json({ error: 'Invalid payment method' });
+        if (!orderId || !amount) {
+            res.status(400).json({ error: 'Order ID and amount are required' });
             return;
         }
 
         const order = await paymentGatewayService.createRazorpayOrder(
             orderId,
-            amount,
-            paymentMethod as PaymentMethod
+            amount
         );
 
         res.json(order);

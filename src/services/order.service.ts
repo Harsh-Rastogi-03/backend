@@ -114,6 +114,32 @@ export const createOrder = async (data: CreateOrderInput) => {
     }
 };
 
+export const getOrderById = async (orderId: string, userId: string) => {
+    const { data, error } = await supabase
+        .from('orders')
+        .select(`
+            *,
+            items:order_items(
+                *,
+                product:products(
+                    name,
+                    images,
+                    slug,
+                    sku
+                )
+            )
+        `)
+        .eq('id', orderId)
+        .eq('user_id', userId)
+        .single();
+
+    if (error || !data) {
+        throw new Error('Order not found');
+    }
+
+    return data;
+};
+
 export const getUserOrders = async (userId: string) => {
     const { data, error } = await supabase
         .from('orders')

@@ -7,6 +7,7 @@ const router = Router();
 // User Routes
 router.post('/', authenticate, orderController.createOrder);
 router.get('/my-orders', authenticate, orderController.getMyOrders);
+router.get('/:orderId', authenticate, orderController.getOrderById);
 
 // Admin Routes
 router.get('/admin/all', authenticate, authorize(['ADMIN']), orderController.getAllOrders);

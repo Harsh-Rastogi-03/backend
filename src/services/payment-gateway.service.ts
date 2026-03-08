@@ -1,7 +1,7 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import supabase from '../utils/supabase';
-import { PaymentMethod, TransactionStatus, PaymentStatus } from '../types/database.types';
+import { TransactionStatus, PaymentStatus, PaymentMethod } from '../types/database.types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Lazy-initialize Razorpay to ensure env vars are loaded
@@ -40,8 +40,7 @@ interface PaymentVerificationResult {
  */
 export const createRazorpayOrder = async (
     orderId: string,
-    amount: number,
-    paymentMethod: PaymentMethod
+    amount: number
 ): Promise<RazorpayOrderResult> => {
     // Amount in paise (Razorpay expects smallest currency unit)
     const amountInPaise = Math.round(amount * 100);
@@ -52,11 +51,11 @@ export const createRazorpayOrder = async (
         receipt: orderId,
         notes: {
             orderId,
-            paymentMethod,
         },
     });
 
-    // Store payment transaction record
+    // Store payment transaction record — payment_method is a placeholder,
+    // updated to the actual method (upi/card/netbanking) after Razorpay verification
     const transactionId = `TXN_${Date.now()}_${uuidv4().substring(0, 8)}`;
 
     const { error } = await supabase
@@ -64,7 +63,7 @@ export const createRazorpayOrder = async (
         .insert({
             order_id: orderId,
             transaction_id: transactionId,
-            payment_method: paymentMethod,
+            payment_method: 'UPI',
             amount,
             status: 'PENDING',
             gateway_response: {
@@ -112,18 +111,42 @@ export const verifyPayment = async (
     }
 
     if (isValid) {
-        // Update transaction to completed
+        // Fetch actual payment method from Razorpay
+        let actualMethod: string | null = null;
+        try {
+            const paymentDetails = await getRazorpay().payments.fetch(razorpayPaymentId);
+            actualMethod = paymentDetails.method || null; // 'upi', 'card', 'netbanking', 'wallet', etc.
+        } catch (_) {
+            // Non-critical — proceed without method info
+        }
+
+        // Update transaction to completed with actual payment method
+        const updateData: Record<string, unknown> = {
+            status: TransactionStatus.COMPLETED,
+            gateway_response: {
+                razorpay_order_id: razorpayOrderId,
+                razorpay_payment_id: razorpayPaymentId,
+                razorpay_signature: razorpaySignature,
+                verified: true,
+                method: actualMethod,
+            },
+        };
+        if (actualMethod) {
+            const methodMap: Record<string, string> = {
+                upi: 'UPI',
+                card: 'CREDIT_CARD',
+                netbanking: 'NET_BANKING',
+                wallet: 'WALLET',
+                emi: 'CREDIT_CARD',
+                cardless_emi: 'WALLET',
+                paylater: 'WALLET',
+            };
+            updateData.payment_method = methodMap[actualMethod] || 'UPI';
+        }
+
         const { error: updateError } = await supabase
             .from('payment_transactions')
-            .update({
-                status: TransactionStatus.COMPLETED,
-                gateway_response: {
-                    razorpay_order_id: razorpayOrderId,
-                    razorpay_payment_id: razorpayPaymentId,
-                    razorpay_signature: razorpaySignature,
-                    verified: true,
-                },
-            })
+            .update(updateData)
             .eq('id', transaction.id);
 
         if (updateError) throw new Error(updateError.message);

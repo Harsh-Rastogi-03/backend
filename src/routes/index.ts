@@ -10,6 +10,7 @@ import cartRoutes from './cart.routes';
 import reviewRoutes from './review.routes';
 import wishlistRoutes from './wishlist.routes';
 import analyticsRoutes from './analytics.routes';
+import shippingRoutes from './shipping.routes';
 
 const router = Router();
 
@@ -24,5 +25,6 @@ router.use('/cart', cartRoutes);
 router.use('/reviews', reviewRoutes);
 router.use('/wishlist', wishlistRoutes);
 router.use('/analytics', analyticsRoutes);
+router.use('/shipping', shippingRoutes);
 
 export default router;
