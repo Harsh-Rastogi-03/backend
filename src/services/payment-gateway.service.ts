@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import supabase from '../utils/supabase';
 import { TransactionStatus, PaymentStatus, PaymentMethod } from '../types/database.types';
 import { v4 as uuidv4 } from 'uuid';
+import { autoCreateShipment } from './shiprocket.service';
 
 // Lazy-initialize Razorpay to ensure env vars are loaded
 let razorpayInstance: Razorpay | null = null;
@@ -162,6 +163,11 @@ export const verifyPayment = async (
 
         if (orderError) throw new Error(orderError.message);
 
+        // Auto-create Shiprocket shipment (non-blocking)
+        autoCreateShipment(transaction.order_id).catch((err) => {
+            console.error('Auto-shipment background error:', err.message);
+        });
+
         return {
             success: true,
             transactionId: transaction.transaction_id,
@@ -248,6 +254,11 @@ export const handleWebhook = async (
                 status: 'PROCESSING',
             })
             .eq('id', transaction.order_id);
+
+        // Auto-create Shiprocket shipment (non-blocking, skip if already created by verify)
+        autoCreateShipment(transaction.order_id).catch((err) => {
+            console.error('Auto-shipment webhook error:', err.message);
+        });
     } else if (event === 'payment.failed') {
         await supabase
             .from('payment_transactions')

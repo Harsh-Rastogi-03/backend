@@ -19,7 +19,7 @@ router.get('/track/:awb', authenticate, authorize(['ADMIN']), shippingController
 // Admin: Cancel a shipment
 router.post('/cancel/:shiprocketOrderId', authenticate, authorize(['ADMIN']), shippingController.cancelShipment);
 
-// Webhook: Shiprocket status updates
-router.post('/webhook/shiprocket', shippingController.shiprocketWebhook);
+// Webhook: Shipping status updates
+router.post('/webhook/status-update', shippingController.shiprocketWebhook);
 
 export default router;

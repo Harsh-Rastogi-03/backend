@@ -10,6 +10,7 @@ interface CreateOrderInput {
     shippingZip: string;
     shippingCountry: string;
     shippingPhone?: string;
+    shippingCost?: number;
 }
 
 export const createOrder = async (data: CreateOrderInput) => {
@@ -43,12 +44,17 @@ export const createOrder = async (data: CreateOrderInput) => {
         });
     }
 
-    // 2. Create Order
+    // 2. Apply shipping cost (free for orders >= 2000)
+    const FREE_SHIPPING_THRESHOLD = 2000;
+    const shippingCost = total >= FREE_SHIPPING_THRESHOLD ? 0 : (data.shippingCost || 0);
+    const grandTotal = total + shippingCost;
+
+    // 3. Create Order
     const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
             user_id: data.userId,
-            total: total,
+            total: grandTotal,
             status: OrderStatus.PENDING,
             payment_status: PaymentStatus.PENDING,
             shipping_address: data.shippingAddress,
@@ -57,6 +63,7 @@ export const createOrder = async (data: CreateOrderInput) => {
             shipping_zip: data.shippingZip,
             shipping_country: data.shippingCountry,
             shipping_phone: data.shippingPhone || null,
+            shipping_cost: shippingCost,
         })
         .select()
         .single();

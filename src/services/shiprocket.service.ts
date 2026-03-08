@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from 'axios';
+import supabase from '../utils/supabase';
 
 const SHIPROCKET_BASE_URL = 'https://apiv2.shiprocket.in/v1/external';
 const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL || '';
@@ -329,4 +330,109 @@ export const cancelOrder = async (shiprocketOrderIds: number[]): Promise<{ succe
         success: data?.status === 200 || !!data,
         message: data?.message || 'Cancellation requested',
     };
+};
+
+// --- Auto-create shipment after payment ---
+
+// Default dimensions for jewellery items (small, lightweight)
+const DEFAULT_WEIGHT = 0.2; // kg
+const DEFAULT_LENGTH = 12;  // cm
+const DEFAULT_BREADTH = 10; // cm
+const DEFAULT_HEIGHT = 5;   // cm
+
+export const autoCreateShipment = async (orderId: string): Promise<{
+    success: boolean;
+    awb?: string;
+    courierName?: string;
+    error?: string;
+}> => {
+    try {
+        // Fetch order with items, product details, and user info
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .select(`
+                *,
+                user:users(name, email, phone),
+                items:order_items(
+                    *,
+                    product:products(name, sku, price, weight)
+                )
+            `)
+            .eq('id', orderId)
+            .single();
+
+        if (orderError || !order) {
+            return { success: false, error: 'Order not found' };
+        }
+
+        // Skip if already shipped
+        if (order.tracking_number) {
+            return { success: true, awb: order.tracking_number };
+        }
+
+        const userName = order.user?.name || 'Customer';
+        const userEmail = order.user?.email || '';
+        const userPhone = order.shipping_phone || order.user?.phone || '';
+
+        // Calculate total weight from products or use default
+        const totalWeight = order.items.reduce((sum: number, item: any) => {
+            const productWeight = item.product?.weight || DEFAULT_WEIGHT;
+            return sum + productWeight * item.quantity;
+        }, 0) || DEFAULT_WEIGHT;
+
+        // 1. Create order on Shiprocket
+        const shiprocketOrder = await createOrder({
+            orderId: order.id,
+            orderDate: order.created_at,
+            pickupLocation: process.env.SHIPROCKET_PICKUP_LOCATION || 'Home',
+            billingName: userName,
+            billingAddress: order.shipping_address,
+            billingCity: order.shipping_city,
+            billingPincode: order.shipping_zip,
+            billingState: order.shipping_state || order.shipping_city,
+            billingCountry: order.shipping_country || 'India',
+            billingEmail: userEmail,
+            billingPhone: userPhone,
+            shippingIsBilling: true,
+            items: order.items.map((item: any) => ({
+                name: item.product.name,
+                sku: item.product.sku,
+                units: item.quantity,
+                sellingPrice: Number(item.price),
+            })),
+            paymentMethod: 'Prepaid',
+            subTotal: Number(order.total),
+            weight: totalWeight,
+            length: DEFAULT_LENGTH,
+            breadth: DEFAULT_BREADTH,
+            height: DEFAULT_HEIGHT,
+        });
+
+        // 2. Assign AWB (auto-select cheapest courier)
+        const awbResult = await assignAWB(shiprocketOrder.shipmentId);
+
+        // 3. Request pickup
+        await requestPickup(shiprocketOrder.shipmentId);
+
+        // 4. Update order in DB with tracking info
+        await supabase
+            .from('orders')
+            .update({
+                tracking_number: awbResult.awbCode,
+                shipping_method: `Shiprocket - ${awbResult.courierName}`,
+            })
+            .eq('id', order.id);
+
+        console.log(`Auto-shipment created for order ${orderId}: AWB ${awbResult.awbCode}`);
+
+        return {
+            success: true,
+            awb: awbResult.awbCode,
+            courierName: awbResult.courierName,
+        };
+    } catch (err: any) {
+        console.error(`Auto-shipment failed for order ${orderId}:`, err.message);
+        // Don't throw — shipment failure shouldn't block the payment flow
+        return { success: false, error: err.message };
+    }
 };
