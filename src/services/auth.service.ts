@@ -133,6 +133,14 @@ export const googleLogin = async (data: { email: string; name?: string; picture?
     let user;
 
     if (existingUser) {
+        // Update profile photo from Google if not already set
+        if (data.picture && !existingUser.profile_photo) {
+            await supabase
+                .from('users')
+                .update({ profile_photo: data.picture })
+                .eq('id', existingUser.id);
+            existingUser.profile_photo = data.picture;
+        }
         user = existingUser;
     } else {
         // Create new user without password (Google-only account)
@@ -143,6 +151,7 @@ export const googleLogin = async (data: { email: string; name?: string; picture?
                 password: await bcrypt.hash(uuidv4(), 10), // random password for Google users
                 name: data.name || null,
                 role: 'CUSTOMER',
+                profile_photo: data.picture || null,
             })
             .select()
             .single();

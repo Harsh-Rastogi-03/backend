@@ -52,6 +52,7 @@ export interface User {
     city?: string | null;
     country?: string | null;
     zip_code?: string | null;
+    profile_photo?: string | null;
     is_verified: boolean;
     created_at: string;
     updated_at: string;

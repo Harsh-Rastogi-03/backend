@@ -49,7 +49,10 @@ export const createOrder = async (data: CreateOrderInput) => {
     const shippingCost = total >= FREE_SHIPPING_THRESHOLD ? 0 : (data.shippingCost || 0);
     const grandTotal = total + shippingCost;
 
-    // 3. Create Order
+    // 3. Calculate GST (inclusive at 3%): GST = total * 3 / 103
+    const taxAmount = Math.round((total * 3 / 103) * 100) / 100;
+
+    // 4. Create Order
     const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
@@ -64,6 +67,7 @@ export const createOrder = async (data: CreateOrderInput) => {
             shipping_country: data.shippingCountry,
             shipping_phone: data.shippingPhone || null,
             shipping_cost: shippingCost,
+            tax_amount: taxAmount,
         })
         .select()
         .single();

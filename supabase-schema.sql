@@ -21,6 +21,7 @@ CREATE TABLE users (
   city TEXT,
   country TEXT,
   zip_code TEXT,
+  profile_photo TEXT,
   is_verified BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

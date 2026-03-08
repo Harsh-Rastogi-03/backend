@@ -3,7 +3,7 @@ import supabase from '../utils/supabase';
 export const getUserById = async (userId: string) => {
     const { data, error } = await supabase
         .from('users')
-        .select('id, email, name, phone, address, city, country, zip_code, role, created_at, password')
+        .select('id, email, name, phone, address, city, country, zip_code, role, profile_photo, created_at, password')
         .eq('id', userId)
         .single();
 
@@ -24,6 +24,7 @@ export const updateUser = async (userId: string, data: any) => {
     if (data.city) updateData.city = data.city;
     if (data.country) updateData.country = data.country;
     if (data.zipCode) updateData.zip_code = data.zipCode;
+    if (data.profilePhoto !== undefined) updateData.profile_photo = data.profilePhoto;
 
     const { data: user, error } = await supabase
         .from('users')
@@ -43,7 +44,7 @@ export const getAllUsers = async () => {
     // First get all users
     const { data: users, error } = await supabase
         .from('users')
-        .select('id, email, name, phone, address, city, country, zip_code, role, created_at')
+        .select('id, email, name, phone, address, city, country, zip_code, role, profile_photo, created_at')
         .order('created_at', { ascending: false });
 
     if (error) {
@@ -73,7 +74,7 @@ export const getAllUsers = async () => {
 export const getUserWithOrders = async (userId: string) => {
     const { data: user, error: userError } = await supabase
         .from('users')
-        .select('id, email, name, phone, address, city, country, zip_code, role, created_at')
+        .select('id, email, name, phone, address, city, country, zip_code, role, profile_photo, created_at')
         .eq('id', userId)
         .single();
 
