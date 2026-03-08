@@ -141,12 +141,17 @@ export const createOrder = async (input: CreateOrderInput): Promise<CreateOrderR
     const orderDate = new Date(input.orderDate);
     const formattedDate = `${orderDate.getFullYear()}-${String(orderDate.getMonth() + 1).padStart(2, '0')}-${String(orderDate.getDate()).padStart(2, '0')} ${String(orderDate.getHours()).padStart(2, '0')}:${String(orderDate.getMinutes()).padStart(2, '0')}`;
 
+    // Shiprocket requires separate first/last name fields
+    const [billingFirst, ...billingLastParts] = input.billingName.trim().split(/\s+/);
+    const billingLast = billingLastParts.join(' ') || billingFirst;
+
     const payload: any = {
         order_id: input.orderId,
         order_date: formattedDate,
         channel_id: '',
         pickup_location: input.pickupLocation || process.env.SHIPROCKET_PICKUP_LOCATION || 'Primary',
-        billing_customer_name: input.billingName,
+        billing_customer_name: billingFirst,
+        billing_last_name: billingLast,
         billing_address: input.billingAddress,
         billing_city: input.billingCity,
         billing_pincode: input.billingPincode,
@@ -170,7 +175,10 @@ export const createOrder = async (input: CreateOrderInput): Promise<CreateOrderR
     };
 
     if (!input.shippingIsBilling) {
-        payload.shipping_customer_name = input.shippingName;
+        const [shippingFirst, ...shippingLastParts] = (input.shippingName || '').trim().split(/\s+/);
+        const shippingLast = shippingLastParts.join(' ') || shippingFirst;
+        payload.shipping_customer_name = shippingFirst;
+        payload.shipping_last_name = shippingLast;
         payload.shipping_address = input.shippingAddress;
         payload.shipping_city = input.shippingCity;
         payload.shipping_pincode = input.shippingPincode;

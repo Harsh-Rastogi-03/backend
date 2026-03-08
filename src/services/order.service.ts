@@ -189,6 +189,42 @@ export const getAllOrders = async () => {
     return data || [];
 };
 
+export const cancelOrder = async (orderId: string, userId: string) => {
+    // Fetch the order and verify ownership
+    const { data: order, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', orderId)
+        .eq('user_id', userId)
+        .single();
+
+    if (fetchError || !order) {
+        throw new Error('Order not found');
+    }
+
+    // Only allow cancellation if status is PENDING or PROCESSING
+    if (order.status !== OrderStatus.PENDING && order.status !== OrderStatus.PROCESSING) {
+        throw new Error('Order cannot be cancelled. Only orders with PENDING or PROCESSING status can be cancelled.');
+    }
+
+    // Update order status to CANCELLED and set cancelled_at timestamp
+    const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({
+            status: OrderStatus.CANCELLED,
+            cancelled_at: new Date().toISOString(),
+        })
+        .eq('id', orderId)
+        .select()
+        .single();
+
+    if (updateError) {
+        throw new Error(`Failed to cancel order: ${updateError.message}`);
+    }
+
+    return updatedOrder;
+};
+
 export const updateOrderStatus = async (orderId: string, status: OrderStatus, paymentStatus?: PaymentStatus) => {
     const updateData: any = { status };
     if (paymentStatus) {

@@ -99,6 +99,30 @@ export const getAllOrders = async (req: Request, res: Response) => {
     }
 };
 
+export const cancelOrder = async (req: AuthRequest, res: Response) => {
+    try {
+        if (!req.user || !req.user.userId) {
+            res.status(401).json({ error: 'Unauthorized' });
+            return;
+        }
+
+        const { orderId } = req.params;
+        const order = await orderService.cancelOrder(orderId, req.user.userId);
+        res.status(200).json({ message: 'Order cancelled successfully', order });
+    } catch (error: any) {
+        if (error.message === 'Order not found') {
+            res.status(404).json({ error: 'Order not found' });
+            return;
+        }
+        if (error.message.includes('Order cannot be cancelled')) {
+            res.status(400).json({ error: error.message });
+            return;
+        }
+        console.error(error);
+        res.status(500).json({ error: 'Failed to cancel order' });
+    }
+};
+
 export const updateOrderStatus = async (req: Request, res: Response) => {
     try {
         const { orderId } = req.params;
