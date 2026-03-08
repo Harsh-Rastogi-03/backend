@@ -116,8 +116,10 @@ export interface Order {
     total: number;
     shipping_address: string;
     shipping_city: string;
+    shipping_state: string;
     shipping_zip: string;
     shipping_country: string;
+    shipping_phone?: string | null;
     // Enhanced fields
     tracking_number?: string | null;
     shipping_method?: string | null;
@@ -203,6 +205,22 @@ export interface Coupon {
     valid_until?: string | null;
     is_active: boolean;
     created_at: string;
+}
+
+export interface Address {
+    id: string;
+    user_id: string;
+    label: string;
+    name: string;
+    phone: string;
+    address: string;
+    city: string;
+    state: string;
+    zip_code: string;
+    country: string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface Wishlist {

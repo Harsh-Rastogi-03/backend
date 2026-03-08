@@ -220,6 +220,16 @@ export const cancelShipment = async (req: Request, res: Response) => {
 // Shiprocket webhook for status updates
 export const shiprocketWebhook = async (req: Request, res: Response) => {
     try {
+        // Verify webhook secret if configured
+        const webhookSecret = process.env.SHIPROCKET_WEBHOOK_SECRET;
+        if (webhookSecret) {
+            const receivedSecret = req.headers['x-api-key'] || req.query.secret;
+            if (receivedSecret !== webhookSecret) {
+                res.status(401).json({ error: 'Unauthorized webhook request' });
+                return;
+            }
+        }
+
         const payload = req.body;
         const awb = payload?.awb;
         const currentStatus = payload?.current_status;
@@ -264,7 +274,7 @@ export const shiprocketWebhook = async (req: Request, res: Response) => {
             if (mappedStatus === OrderStatus.DELIVERED) {
                 updateData.delivered_at = new Date().toISOString();
             }
-            if (mappedStatus === OrderStatus.SHIPPED && !order.status) {
+            if (mappedStatus === OrderStatus.SHIPPED && order.status !== OrderStatus.SHIPPED) {
                 updateData.shipped_at = new Date().toISOString();
             }
             if (mappedStatus === OrderStatus.CANCELLED) {

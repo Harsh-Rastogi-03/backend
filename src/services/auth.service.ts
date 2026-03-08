@@ -122,6 +122,42 @@ export const refreshToken = async (token: string) => {
     return { accessToken, refreshToken: newRefreshToken };
 };
 
+export const googleLogin = async (data: { email: string; name?: string; picture?: string; googleId?: string }) => {
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', data.email)
+        .single();
+
+    let user;
+
+    if (existingUser) {
+        user = existingUser;
+    } else {
+        // Create new user without password (Google-only account)
+        const { data: newUser, error } = await supabase
+            .from('users')
+            .insert({
+                email: data.email,
+                password: await bcrypt.hash(uuidv4(), 10), // random password for Google users
+                name: data.name || null,
+                role: 'CUSTOMER',
+            })
+            .select()
+            .single();
+
+        if (error || !newUser) {
+            throw new Error(`Failed to create Google user: ${error?.message}`);
+        }
+        user = newUser;
+    }
+
+    const { accessToken, refreshToken } = await generateTokens(user.id, user.role);
+    const { password, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword, accessToken, refreshToken };
+};
+
 export const logout = async (token: string) => {
     await supabase
         .from('refresh_tokens')

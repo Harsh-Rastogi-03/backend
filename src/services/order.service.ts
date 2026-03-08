@@ -6,8 +6,10 @@ interface CreateOrderInput {
     items: { productId: string; quantity: number }[];
     shippingAddress: string;
     shippingCity: string;
+    shippingState: string;
     shippingZip: string;
     shippingCountry: string;
+    shippingPhone?: string;
 }
 
 export const createOrder = async (data: CreateOrderInput) => {
@@ -51,8 +53,10 @@ export const createOrder = async (data: CreateOrderInput) => {
             payment_status: PaymentStatus.PENDING,
             shipping_address: data.shippingAddress,
             shipping_city: data.shippingCity,
+            shipping_state: data.shippingState,
             shipping_zip: data.shippingZip,
             shipping_country: data.shippingCountry,
+            shipping_phone: data.shippingPhone || null,
         })
         .select()
         .single();
@@ -171,7 +175,8 @@ export const getAllOrders = async () => {
             *,
             user:users(
                 name,
-                email
+                email,
+                phone
             ),
             items:order_items(*)
         `)

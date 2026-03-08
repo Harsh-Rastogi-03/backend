@@ -48,6 +48,21 @@ export const refresh = async (req: Request, res: Response) => {
     }
 };
 
+export const googleLogin = async (req: Request, res: Response) => {
+    try {
+        const { email, name, picture, googleId } = req.body;
+        if (!email) {
+            res.status(400).json({ error: 'Email is required' });
+            return;
+        }
+        const result = await authService.googleLogin({ email, name, picture, googleId });
+        res.status(200).json(result);
+    } catch (error: any) {
+        console.error(error);
+        res.status(500).json({ error: 'Google login failed' });
+    }
+};
+
 export const logout = async (req: Request, res: Response) => {
     try {
         const { refreshToken } = req.body;

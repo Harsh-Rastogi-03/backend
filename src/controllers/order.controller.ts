@@ -16,8 +16,10 @@ const createOrderSchema = z.object({
     })).min(1),
     shippingAddress: z.string().min(5),
     shippingCity: z.string().min(2),
+    shippingState: z.string().min(2),
     shippingZip: z.string().min(3),
     shippingCountry: z.string().min(2),
+    shippingPhone: z.string().min(10).optional(),
 });
 
 const updateOrderSchema = z.object({

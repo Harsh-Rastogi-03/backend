@@ -6,6 +6,7 @@ const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD || '';
 
 let cachedToken: string | null = null;
 let tokenExpiry: number = 0;
+let tokenRefreshPromise: Promise<string> | null = null;
 
 const client: AxiosInstance = axios.create({
     baseURL: SHIPROCKET_BASE_URL,
@@ -18,19 +19,32 @@ const getAuthToken = async (): Promise<string> => {
         return cachedToken;
     }
 
-    const { data } = await axios.post(`${SHIPROCKET_BASE_URL}/auth/login`, {
-        email: SHIPROCKET_EMAIL,
-        password: SHIPROCKET_PASSWORD,
-    });
-
-    if (!data?.token) {
-        throw new Error('Failed to authenticate with Shiprocket');
+    // Prevent concurrent token refresh requests
+    if (tokenRefreshPromise) {
+        return tokenRefreshPromise;
     }
 
-    cachedToken = data.token;
-    // Shiprocket tokens are valid for 10 days; refresh after 9 days
-    tokenExpiry = Date.now() + 9 * 24 * 60 * 60 * 1000;
-    return cachedToken!;
+    tokenRefreshPromise = (async () => {
+        try {
+            const { data } = await axios.post(`${SHIPROCKET_BASE_URL}/auth/login`, {
+                email: SHIPROCKET_EMAIL,
+                password: SHIPROCKET_PASSWORD,
+            });
+
+            if (!data?.token) {
+                throw new Error('Failed to authenticate with Shiprocket');
+            }
+
+            cachedToken = data.token;
+            // Shiprocket tokens are valid for 10 days; refresh after 9 days
+            tokenExpiry = Date.now() + 9 * 24 * 60 * 60 * 1000;
+            return cachedToken!;
+        } finally {
+            tokenRefreshPromise = null;
+        }
+    })();
+
+    return tokenRefreshPromise;
 };
 
 const authHeaders = async () => ({
