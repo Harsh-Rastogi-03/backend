@@ -77,20 +77,42 @@ export const getProductBySlug = async (slug: string) => {
 export const createProduct = async (data: any) => {
     const slug = data.slug || data.name.toLowerCase().replace(/ /g, '-') + '-' + Date.now();
 
+    const insertData: any = {
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        stock: data.stock,
+        sku: data.sku,
+        category: data.category,
+        images: data.images || [],
+        tags: data.tags || [],
+        slug: slug,
+        is_active: true,
+    };
+
+    // Enhanced fields
+    if (data.brand !== undefined) insertData.brand = data.brand || null;
+    if (data.model !== undefined) insertData.model = data.model || null;
+    if (data.material !== undefined) insertData.material = data.material || null;
+    if (data.weight !== undefined) insertData.weight = data.weight || null;
+    if (data.dimensions !== undefined) insertData.dimensions = data.dimensions || null;
+    if (data.color_options !== undefined) insertData.color_options = data.color_options || [];
+    if (data.size_options !== undefined) insertData.size_options = data.size_options || [];
+    if (data.warranty_period !== undefined) insertData.warranty_period = data.warranty_period || null;
+    if (data.features !== undefined) insertData.features = data.features || [];
+    if (data.specifications !== undefined) insertData.specifications = data.specifications || null;
+    if (data.discount_percentage !== undefined) insertData.discount_percentage = data.discount_percentage || 0;
+    if (data.original_price !== undefined) insertData.original_price = data.original_price || null;
+    if (data.is_featured !== undefined) insertData.is_featured = data.is_featured;
+    if (data.is_bestseller !== undefined) insertData.is_bestseller = data.is_bestseller;
+    if (data.is_new_arrival !== undefined) insertData.is_new_arrival = data.is_new_arrival;
+    if (data.meta_title !== undefined) insertData.meta_title = data.meta_title || null;
+    if (data.meta_description !== undefined) insertData.meta_description = data.meta_description || null;
+    if (data.meta_keywords !== undefined) insertData.meta_keywords = data.meta_keywords || [];
+
     const { data: product, error } = await supabase
         .from('products')
-        .insert({
-            name: data.name,
-            description: data.description,
-            price: data.price,
-            stock: data.stock,
-            sku: data.sku,
-            category: data.category,
-            images: data.images || [],
-            tags: data.tags || [],
-            slug: slug,
-            is_active: true,
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -114,6 +136,26 @@ export const updateProduct = async (id: string, data: any) => {
     if (data.tags) updateData.tags = data.tags;
     if (data.slug) updateData.slug = data.slug;
     if (data.isActive !== undefined) updateData.is_active = data.isActive;
+
+    // Enhanced fields
+    if (data.brand !== undefined) updateData.brand = data.brand || null;
+    if (data.model !== undefined) updateData.model = data.model || null;
+    if (data.material !== undefined) updateData.material = data.material || null;
+    if (data.weight !== undefined) updateData.weight = data.weight || null;
+    if (data.dimensions !== undefined) updateData.dimensions = data.dimensions || null;
+    if (data.color_options !== undefined) updateData.color_options = data.color_options || [];
+    if (data.size_options !== undefined) updateData.size_options = data.size_options || [];
+    if (data.warranty_period !== undefined) updateData.warranty_period = data.warranty_period || null;
+    if (data.features !== undefined) updateData.features = data.features || [];
+    if (data.specifications !== undefined) updateData.specifications = data.specifications || null;
+    if (data.discount_percentage !== undefined) updateData.discount_percentage = data.discount_percentage || 0;
+    if (data.original_price !== undefined) updateData.original_price = data.original_price || null;
+    if (data.is_featured !== undefined) updateData.is_featured = data.is_featured;
+    if (data.is_bestseller !== undefined) updateData.is_bestseller = data.is_bestseller;
+    if (data.is_new_arrival !== undefined) updateData.is_new_arrival = data.is_new_arrival;
+    if (data.meta_title !== undefined) updateData.meta_title = data.meta_title || null;
+    if (data.meta_description !== undefined) updateData.meta_description = data.meta_description || null;
+    if (data.meta_keywords !== undefined) updateData.meta_keywords = data.meta_keywords || [];
 
     const { data: product, error } = await supabase
         .from('products')

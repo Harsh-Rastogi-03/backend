@@ -6,6 +6,8 @@ import { authenticate, authorize } from '../middlewares/auth.middleware';
 const router = Router();
 
 router.get('/dashboard', authenticate, authorize(['ADMIN']), adminController.getDashboardStats);
+router.get('/transactions', authenticate, authorize(['ADMIN']), adminController.getTransactions);
+router.get('/shipments', authenticate, authorize(['ADMIN']), adminController.getShipments);
 router.get('/users', authenticate, authorize(['ADMIN']), userController.getAllUsers);
 router.get('/users/:id', authenticate, authorize(['ADMIN']), userController.getUserWithOrders);
 
