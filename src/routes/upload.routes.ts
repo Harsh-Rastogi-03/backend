@@ -2,9 +2,7 @@ import { Router } from 'express';
 import { upload } from '../config/multer';
 import { authenticate, authorize } from '../middlewares/auth.middleware';
 import { Request, Response } from 'express';
-import { processImage, getDateFolder } from '../utils/imageProcessor';
-import path from 'path';
-import fs from 'fs';
+import { processImage } from '../utils/imageProcessor';
 
 const router = Router();
 
@@ -16,34 +14,20 @@ router.post('/single', authenticate, authorize(['ADMIN']), upload.single('image'
             return;
         }
 
-        const dateFolder = getDateFolder();
-        const filename = req.file.filename;
-        const tempFilePath = req.file.path;
+        const filename = req.file.originalname;
+        const buffer = req.file.buffer;
+        const contentType = req.file.mimetype;
 
-        // Define final output directory (date-based)
-        const uploadDir = path.join(__dirname, '../../../frontend/public/uploads');
-        const finalOutputDir = path.join(uploadDir, dateFolder);
-
-        // Process image (create thumbnails and optimize) from temp to final destination
-        const processedImages = await processImage(tempFilePath, finalOutputDir, filename);
-
-        // Delete temporary file
-        if (fs.existsSync(tempFilePath)) {
-            fs.unlinkSync(tempFilePath);
-        }
-
-        // Construct URLs with date folder
-        const imageUrl = `/uploads/${dateFolder}/${processedImages.original}`;
-        const thumbnailUrl = `/uploads/${dateFolder}/${processedImages.thumbnail}`;
-        const mediumUrl = `/uploads/${dateFolder}/${processedImages.medium}`;
+        // Process image and upload to Supabase Storage
+        const urls = await processImage(buffer, filename, contentType);
 
         res.status(200).json({
             message: 'Image uploaded and processed successfully',
-            url: imageUrl,
-            thumbnail: thumbnailUrl,
-            medium: mediumUrl,
-            filename: processedImages.original,
-            variants: processedImages
+            url: urls.original,
+            thumbnail: urls.thumbnail,
+            medium: urls.medium,
+            filename: filename,
+            variants: urls
         });
     } catch (error) {
         console.error('Upload error:', error);
@@ -59,46 +43,22 @@ router.post('/multiple', authenticate, authorize(['ADMIN']), upload.array('image
             return;
         }
 
-        const dateFolder = getDateFolder();
-        const uploadDir = path.join(__dirname, '../../../frontend/public/uploads');
-        const finalOutputDir = path.join(uploadDir, dateFolder);
         const results = [];
 
-        // Ensure final output directory exists
-        if (!fs.existsSync(finalOutputDir)) {
-            fs.mkdirSync(finalOutputDir, { recursive: true });
-        }
-
-        // Process each uploaded image
         for (const file of req.files) {
-            const filename = file.filename;
-            const tempFilePath = file.path;
-
             try {
-                // Process image (create thumbnails and optimize) from temp to final destination
-                const processedImages = await processImage(tempFilePath, finalOutputDir, filename);
-
-                // Delete temporary file
-                if (fs.existsSync(tempFilePath)) {
-                    fs.unlinkSync(tempFilePath);
-                }
-
+                const urls = await processImage(file.buffer, file.originalname, file.mimetype);
                 results.push({
-                    url: `/uploads/${dateFolder}/${processedImages.original}`,
-                    thumbnail: `/uploads/${dateFolder}/${processedImages.thumbnail}`,
-                    medium: `/uploads/${dateFolder}/${processedImages.medium}`,
-                    filename: processedImages.original,
+                    url: urls.original,
+                    thumbnail: urls.thumbnail,
+                    medium: urls.medium,
+                    filename: file.originalname,
                 });
             } catch (error) {
-                console.error(`Error processing ${filename}:`, error);
-                // Even if processing fails, try to clean up the temp file
-                if (fs.existsSync(tempFilePath)) {
-                    try { fs.unlinkSync(tempFilePath); } catch (e) { }
-                }
+                console.error(`Error processing ${file.originalname}:`, error);
             }
         }
 
-        // Extract just the URLs for backward compatibility
         const imageUrls = results.map(r => r.url);
         const thumbnailUrls = results.map(r => r.thumbnail);
         const mediumUrls = results.map(r => r.medium);

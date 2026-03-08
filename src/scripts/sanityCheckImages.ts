@@ -1,20 +1,17 @@
 /**
  * Image Upload System - Sanity Check Script
- * 
+ *
  * This script tests the entire image upload flow:
  * 1. Filename sanitization
  * 2. UUID generation
  * 3. Date folder creation
- * 4. Image processing (thumbnails, optimization)
- * 5. File storage
- * 6. URL generation
- * 
+ * 4. Image processing & Supabase Storage upload
+ *
  * Run: npx ts-node src/scripts/sanityCheckImages.ts
  */
 
 import { generateTestImage, cleanupTestImages } from '../utils/testImageGenerator';
 import { sanitizeFilename, generateUniqueFilename, getDateFolder, processImage } from '../utils/imageProcessor';
-import path from 'path';
 import fs from 'fs';
 
 // ANSI color codes for pretty output
@@ -119,46 +116,41 @@ async function runSanityCheck() {
             failedTests++;
         }
 
-        // Test 5: Image Processing
-        log.section('Test 5: Image Processing (Thumbnails & Optimization)');
-        const uploadDir = path.join(__dirname, '../../../frontend/public/uploads', dateFolder);
-
-        // Ensure upload directory exists
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-            log.info(`Created upload directory: ${uploadDir}`);
-        }
-
+        // Test 5: Image Processing & Supabase Upload
+        log.section('Test 5: Image Processing & Supabase Storage Upload');
         const processedFilename = generateUniqueFilename('sanity-check-processed.png');
 
         try {
+            const imageBuffer = fs.readFileSync(testImagePath);
+
             const processedImages = await processImage(
-                testImagePath,
-                uploadDir,
-                processedFilename
+                imageBuffer,
+                processedFilename,
+                'image/png'
             );
 
-            // Check if all variants were created
-            const variants = ['original', 'thumbnail', 'medium'];
+            const variants: Array<{ name: string; key: keyof typeof processedImages }> = [
+                { name: 'original', key: 'original' },
+                { name: 'thumbnail', key: 'thumbnail' },
+                { name: 'medium', key: 'medium' },
+            ];
             let allVariantsExist = true;
 
             for (const variant of variants) {
-                const variantFilename = processedImages[variant];
-                const variantPath = path.join(uploadDir, variantFilename);
+                const url = processedImages[variant.key];
 
-                if (fs.existsSync(variantPath)) {
-                    const stats = fs.statSync(variantPath);
-                    log.success(`${variant.padEnd(10)}: ${variantFilename} (${(stats.size / 1024).toFixed(2)} KB)`);
+                if (url && url.startsWith('http')) {
+                    log.success(`${variant.name.padEnd(10)}: ${url}`);
                     passedTests++;
                 } else {
-                    log.error(`${variant} variant not created: ${variantFilename}`);
+                    log.error(`${variant.name} variant not uploaded: ${url}`);
                     allVariantsExist = false;
                     failedTests++;
                 }
             }
 
             if (allVariantsExist) {
-                log.success('All image variants created successfully');
+                log.success('All image variants uploaded to Supabase Storage successfully');
             }
 
         } catch (error: any) {
@@ -166,63 +158,8 @@ async function runSanityCheck() {
             failedTests++;
         }
 
-        // Test 6: URL Generation
-        log.section('Test 6: URL Generation');
-        const testUrls = [
-            `/uploads/${dateFolder}/${processedFilename}`,
-            `/uploads/${dateFolder}/${processedFilename.replace('.png', '-thumb.png')}`,
-            `/uploads/${dateFolder}/${processedFilename.replace('.png', '-medium.png')}`,
-        ];
-
-        for (const url of testUrls) {
-            const isValidUrl = url.startsWith('/uploads/') && /^\d{4}\/\d{2}\//.test(url.replace('/uploads/', ''));
-
-            if (isValidUrl) {
-                log.success(`Valid URL: ${url}`);
-                passedTests++;
-            } else {
-                log.error(`Invalid URL: ${url}`);
-                failedTests++;
-            }
-        }
-
-        // Test 7: File System Check
-        log.section('Test 7: File System Verification');
-        const publicUploadsDir = path.join(__dirname, '../../../frontend/public/uploads');
-
-        if (fs.existsSync(publicUploadsDir)) {
-            log.success(`Upload directory exists: ${publicUploadsDir}`);
-
-            // Check if date folder exists
-            const dateFolderPath = path.join(publicUploadsDir, dateFolder);
-            if (fs.existsSync(dateFolderPath)) {
-                log.success(`Date folder exists: ${dateFolder}`);
-
-                // List files in date folder
-                const files = fs.readdirSync(dateFolderPath);
-                log.info(`Files in date folder: ${files.length}`);
-
-                if (files.length > 0) {
-                    log.info('Sample files:');
-                    files.slice(0, 5).forEach(file => {
-                        const filePath = path.join(dateFolderPath, file);
-                        const stats = fs.statSync(filePath);
-                        log.info(`  - ${file} (${(stats.size / 1024).toFixed(2)} KB)`);
-                    });
-                }
-
-                passedTests += 2;
-            } else {
-                log.error(`Date folder not found: ${dateFolder}`);
-                failedTests++;
-            }
-        } else {
-            log.error(`Upload directory not found: ${publicUploadsDir}`);
-            failedTests++;
-        }
-
-        // Test 8: Special Characters Test
-        log.section('Test 8: Special Characters Handling');
+        // Test 6: Special Characters Handling
+        log.section('Test 6: Special Characters Handling');
         const specialCharTests = [
             { input: '10%-discount.png', shouldContain: 'discount' },
             { input: 'Product #123.jpg', shouldContain: 'product-123' },
